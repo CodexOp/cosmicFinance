@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useRef, useEffect, useState} from 'react';
 import * as Falcons from 'react-icons/fa';
 import * as Aicons from 'react-icons/ai';
 import { Link } from 'react-router-dom';
@@ -6,38 +6,115 @@ import { SliderData, linkdata } from './SidebarData';
 import './sidebar.scss';
 import * as Faicons from 'react-icons/fa'
 import * as Ai from 'react-icons/ai'
-import { ethers } from "ethers";
+import { ethers, providers } from "ethers";
 import logo from '../../images/logo.png';
+// import WalletConnectProvider from "@walletconnect/web3-provider";
+import Web3Modal from "web3modal";
+import values from "../../values.json"
+import {provider, setProvider, signer, setSigner} from '../../App';
+
+
 
 
 const Sidebar = () => {
 
     let [address, setAddress]= useState("Connect");
 
+    let [connectedWallet, setConnectedWallet] = React.useState(false);
+    let [walletAddress, setWalletAddress] = React.useState("Connect");
+  
+
+    let _provider = React.useContext (provider);
+    let _setProvider = React.useContext (setProvider);
+    let _signer = React.useContext (signer);
+    let _setSigner = React.useContext (setSigner);
+
+    const web3ModalRef = useRef(); // return the object with key named current
+
     useEffect(() => {
-        console.log("Slide")
-        connectMeta();
+        web3ModalRef.current = new Web3Modal({
+          network: "rinkeby",
+          providerOptions: {
+            walletconnect: {
+              // package: WalletConnectProvider, // required
+              // options: {
+              //   rpc: {
+              //     56: values.rpcUrl
+              //   } // required
+              // }
+              // coinbasewallet: {
+              //   package: "CoinbaseWalletSDK", // Required
+              //   options: {
+              //     appName: "My Awesome App", // Required
+              //     infuraId: "INFURA_ID", // Required
+              //     rpc: "", // Optional if `infuraId` is provided; otherwise it's required
+              //     chainId: 1, // Optional. It defaults to 1 if not provided
+              //     darkMode: false // Optional. Use dark theme, defaults to false
+              //   }
+              // },
+              // fortmatic: {
+              //   package: Fortmatic, // required
+              //   options: {
+              //     key: "FORTMATIC_KEY", // required,
+              //     // network: customNetworkOptions // if we don't pass it, it will default to localhost:8454
+              //   }
+              // },
+              // torus: {
+              //   package: Torus, // required
+              //   options: {
+              //     networkParams: {
+              //       host: "https://localhost:8545", // optional
+              //       chainId: 1337, // optional
+              //       networkId: 1337 // optional
+              //     },
+              //     config: {
+              //       buildEnv: "development" // optional
+              //     }
+              //   }
+              // }
+            }
+          },
+        });
+        connectWallet();
+    
       }, []);
+    
 
-    async function connectMeta(){
+
+      const connectWallet = async () => {
+        try {
+          await getSignerOrProvider(true);
+        } catch (error) {
+          console.log(" error Bhai", error);
+        }
+      };
+    
+      const getSignerOrProvider = async (needSigner = false) => {
         try{
-         if (typeof window.ethereum !== 'undefined') {
-           console.log('MetaMask is installed!');
-         }else console.log ("Shit man")
-         console.log("Connecting to metamask");
-         let provider = new ethers.providers.Web3Provider(window.ethereum);
-         await provider.send("eth_requestAccounts", []).catch((error) => {
-             console.log(error);
-         })
-         let signer = provider.getSigner();
-         const walletAddress = await signer.getAddress();
-         setAddress(walletAddress.slice(0, 6)+ "...");
-         console.log("Slidebar");
-       } catch (error) {
-         console.log(error);
-       }
-      }
-
+          const _provider = new providers.JsonRpcProvider(values.rpcUrl);
+          _setProvider(_provider);
+          const provider = await web3ModalRef.current.connect();
+          const web3Provider = new providers.Web3Provider(provider);
+          const { chainId } = await web3Provider.getNetwork();
+          console.log ("ChainId: ", chainId);
+          // if (chainId !== 4) {
+          //   alert("USE RINKEEBY NETWORK");
+          //   throw new Error("Change network to Rinkeby");
+          // }
+          if (needSigner) {
+            const signer = web3Provider.getSigner();
+            _setSigner(signer)
+            let temp = await signer.getAddress();
+            setWalletAddress(temp.toString());
+          }
+          setConnectedWallet(true);
+        } catch (error) {
+          console.log (error);
+          const provider = new providers.JsonRpcProvider(values.rpcUrl);
+          _setProvider(provider);
+        }
+      };
+    
     useEffect(()=>{
         if(window.innerWidth >= 1024){
             setSidebar(true)    
@@ -63,7 +140,9 @@ const Sidebar = () => {
 
         <div>
             <Link to="/swap"> <button className='swap_button'>Swap</button></Link>
-            <button className='connect_button'>{address}</button>
+            <button className='connect_button' onClick={connectWallet}>{(connectedWallet)? <>{walletAddress.slice(0, 6) + "..."}</>
+      :
+      <>Connect</>}</button>
 
 
         </div>

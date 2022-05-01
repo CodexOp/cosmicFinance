@@ -1,46 +1,36 @@
-import * as React from 'react'
+import React, {useRef} from 'react'
 import './dash.scss';
 import * as Ai from 'react-icons/ai'
 import {FaWallet} from 'react-icons/fa'
-import { ethers } from "ethers";
+import {ethers,  providers } from "ethers";
 import routerAbi from '../../abi/router.json'
 import addresses from '../../abi/addresses.json'
 import tokenAbi from '../../abi/token.json'
 import chart from '../../images/Group.png'
 import ring from '../../images/ring.png'
- 
+import {provider, setProvider, signer, setSigner} from '../../App';
+import values from "../../values.json"
+
+
 const Dash = () => {
-  let [walletAddress, setAddress]= React.useState("Connect Wallet");
   let [price, setPrice] = React.useState(0);
   let [balance, setBalance] = React.useState(0);
-  let [busdBalance, setBusdBalance] = React.useState(0);
+  let [burn, setBurn] = React.useState(0);
   let [totalSupply, setTotalSupply] = React.useState(0);
-  let [yourBusdEarning, setYourBusdEarning] = React.useState(0);
-  let [unclaimedReward, setUnclaimedReward] = React.useState(0);
-  let [totalBusdReward, setTotalBusdReward] = React.useState(0);
-  let apy = 383000;
+  let [taxBracket, setTaxBracket] = React.useState(0);
+  let [rebaseTime, setRebaseTime] = React.useState(0);
+  let initialTotalSupply = 325000;
+
+  let [connectedWallet, setConnectedWallet] = React.useState(false);
+  let [walletAddress, setWalletAddress] = React.useState("");
+
+  let _provider = React.useContext (provider);
+  let _setProvider = React.useContext (setProvider);
+  let _signer = React.useContext (signer);
+  let _setSigner = React.useContext (setSigner);
+
 
   React.useEffect(() => {
-
-    async function fetchData(){
-      await connectMeta();
-      getPrice();
-      getRewardDetails();
-      getTotalSupply();
-      getTotalBusdDistributed();
-      let _balance = await _getBalance(addresses.token);
-      let _busdBalance = await _getBalance(addresses.busd);
-      setBalance(_balance);
-      setBusdBalance(_busdBalance);
-    }
-    fetchData();
-
-
-
-
-
-
-
     var configuration = {
       from: 'ETH',
       to: 'RBC',
@@ -63,51 +53,49 @@ const Dash = () => {
       promoCode: 'srTqRKUz',
       fee: 0.075,
       feeTarget: '0xecA0A3eFCf009519052Dc92306fE821b9c7A32A2'
-  }
+    }
 
-  // prevent accidental changes to the object, for example, when re-creating a widget for another theme
-  Object.freeze(configuration);
+    // prevent accidental changes to the object, for example, when re-creating a widget for another theme
+    Object.freeze(configuration);
 
-  // create widget
-  window.rubicWidget.init(configuration);
-
+    // create widget
+    window.rubicWidget.init(configuration);
+    getRebaseTime();
 
 
   }, []);
 
-  async function connectMeta(){
-    try{
-     if (typeof window.ethereum !== 'undefined') {
-       console.log('MetaMask is installed!');
-     }else console.log ("Shit man")
-     console.log("Connecting to metamask");
-     let provider = new ethers.providers.Web3Provider(window.ethereum);
-     await provider.send("eth_requestAccounts", []).catch((error) => {
-         console.log(error);
-     })
-     let signer = provider.getSigner();
-     const walletAddress = await signer.getAddress();
-     setAddress(walletAddress);
-     console.log("Dashboard");
-   } catch (error) {
-     console.log(error);
-   }
-  }
+
+  React.useEffect(() => {
+
+    async function fetchData(){
+      getPrice();
+      getTotalSupply();
+      let _balance = await _getBalance(values.token);
+      let _burn = await _getBalance(values.dead);
+      setBalance(_balance);
+      setBurn(_burn);
+    }
+    fetchData();
+
+  }, [_provider, _signer]);
+
 
   async function getPrice(){
     try{
-      let rpcUrl = addresses.rpcUrl;
+      let rpcUrl = values.rpcUrl;
       let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
       let router = new ethers.Contract(
-        addresses.router,
+        values.router,
         routerAbi,
         provider_
       );
-      const tokenIn = addresses.token;
-      const tokenOut = addresses.wbnb;
-      const amountIn = "100000";
+      const tokenIn = values.token;
+      const tokenOut = values.wbnb;
+      
+      const amountIn = ethers.utils.parseUnits("1", 5);
       let amounts = await router.getAmountsOut(amountIn, [tokenIn, tokenOut]);
-      let busd = addresses.busd;
+      let busd = values.busd;
       let amounts2 = await router.getAmountsOut(amounts[1], [tokenOut, busd]);
       console.log(`
           tokenIn: ${ethers.utils.formatEther(amountIn.toString())} ${tokenIn} (safeearn)
@@ -121,7 +109,7 @@ const Dash = () => {
 
   async function _getBalance (address){
     try {
-      let rpcUrl = addresses.rpcUrl;
+      let rpcUrl = values.rpcUrl;
       let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
       let token = new ethers.Contract(
         address,
@@ -129,132 +117,86 @@ const Dash = () => {
         provider_
       );
       let provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []).catch((error) => {
-        console.log(error);
-      })
       let signer = provider.getSigner();
       const walletAddress = await signer.getAddress();
       let balance = await token.balanceOf (walletAddress);
       let decimals = await token.decimals();
       decimals = parseInt(decimals.toString());
-      balance = ethers.utils.formatEther(balance, decimals);
+      balance = ethers.utils.formatUnits(balance, decimals);
       console.log ("balance", balance.toString());
       return parseFloat(balance.toString()).toFixed(2);
     } catch (err){
-      console.log (err);
+      console.log (err, address);
       return 0;
     }
   }
 
-  async function getRewardDetails(){
-    try{
-      let rpcUrl = addresses.rpcUrl;
-      let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
-      let token = new ethers.Contract(
-        addresses.token,
-        tokenAbi,
-        provider_
-      );
-      let dividendTrackerAddress = await token.dividendTracker();
-      console.log("DividendTrankerAddress", dividendTrackerAddress);
-      let dividendTracker = new ethers.Contract(
-        dividendTrackerAddress,
-        ["function getHolderDetails(address holder) public view returns ( uint256 , uint256 , uint256 , uint256 )"],
-        provider_
-      );
-      let provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []).catch((error) => {
-        console.log(error);
-      })
-      let signer = provider.getSigner();
-      const walletAddress = await signer.getAddress();
-      console.log(walletAddress);
-      let share = await dividendTracker.getHolderDetails(walletAddress);
-      console.log("Share",share);
-      setYourBusdEarning (parseFloat(ethers.utils.formatEther(share[2].toString())).toFixed(2));
-      setUnclaimedReward (parseFloat(ethers.utils.formatEther(share[1].toString())).toFixed(2));
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  async function claimReward (){
-    try{
-      let rpcUrl = addresses.rpcUrl;
-      let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
-      let token = new ethers.Contract(
-        addresses.token,
-        tokenAbi,
-        provider_
-      );
-      let dividendTrackerAddress = await token.dividendTracker();
-      console.log("DividendTrankerAddress", dividendTrackerAddress);
-      let dividendTracker = new ethers.Contract(
-        dividendTrackerAddress,
-        ["function claimDividend() external"],
-        provider_
-      );
-      let provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []).catch((error) => {
-        console.log(error);
-      })
-      let signer = provider.getSigner();
-      let signedDividendTracker =dividendTracker.connect(signer);
-      let tx = await signedDividendTracker.claimDividend();
-      console.log(tx);
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
   async function getTotalSupply (){
-    let rpcUrl = addresses.rpcUrl;
-    let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
-    let token = new ethers.Contract(
-      addresses.token,
-      tokenAbi,
-      provider_
-    );
-    let supply = await token.totalSupply();
-    console.log("Supply", supply.toString());
-    let decimals = await token.decimals();
-      decimals = parseInt(decimals.toString());
-      while (decimals--){
-        supply = supply.div('10');
-      }
-    setTotalSupply(parseInt(supply));
-  }
-
-  async function getTotalBusdDistributed (){
     try{
-      let rpcUrl = addresses.rpcUrl;
+      let rpcUrl = values.rpcUrl;
       let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
       let token = new ethers.Contract(
-        addresses.token,
+        values.token,
         tokenAbi,
         provider_
       );
-      let dividendTrackerAddress = await token.dividendTracker();
-      console.log("DividendTrankerAddress", dividendTrackerAddress);
-      let dividendTracker = new ethers.Contract(
-        dividendTrackerAddress,
-        ["function totalDistributedRewards() external view returns (uint256)"],
-        provider_
-      );
-      let provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []).catch((error) => {
-        console.log(error);
-      })
-      let signer = provider.getSigner();
-      const walletAddress = await signer.getAddress();
-      console.log(walletAddress);
-      let rewards = await dividendTracker.totalDistributedRewards();
-      setTotalBusdReward(parseFloat(ethers.utils.formatEther(rewards.toString())).toFixed(2))
-    }catch(err){
+      let supply = await token.totalSupply();
+      console.log("Supply", supply.toString());
+      let decimals = await token.decimals();
+      decimals = parseInt(decimals.toString());
+      supply = ethers.utils.formatUnits(supply, decimals);
+      setTotalSupply(parseInt(supply));
+    } catch (err) {
       console.log(err);
     }
   }
 
+  async function getCurrentTaxBracket () {
+    try{
+      let rpcUrl = values.rpcUrl;
+      let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
+      let token = new ethers.Contract(
+        values.token,
+        tokenAbi,
+        provider_
+      );
+
+      let _taxBracket = await token.getCurrentTaxBracket();
+      setTaxBracket(parseInt(_taxBracket.toString())/10);
+
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function getRebaseTime (){
+    try {
+      let rpcUrl = values.rpcUrl;
+      let provider_ = new ethers.providers.JsonRpcProvider(rpcUrl);
+      let token = new ethers.Contract(
+        values.token,
+        tokenAbi,
+        provider_
+      );
+      let time = await token._lastRebasedTime();
+      let timestamp = new Date().getTime();
+      timestamp = (timestamp/1000).toFixed(0);
+      console.log("Time", time.toString(), timestamp);
+      time = timestamp- parseInt(time.toString());
+      time = (10*60) - time;
+      if (time<0) time = 600- timestamp%600;
+      setRebaseTime(time);
+      
+      let updateTime = setInterval(() => {
+        setRebaseTime((value) => {
+          if (value <=0)return 600;
+          return value -1;
+        });
+      }, 1000);
+    } catch (error) {
+      console.log ("Rebase Error:", error);
+    }
+  }
 
   return (
     <div className='dash'>
@@ -280,7 +222,7 @@ const Dash = () => {
             <h2>Rebase Timer</h2>
             </div>
             <div className="card_value">
-             <h2>05:08:86</h2>
+             <h2>{parseInt(rebaseTime/60)}:{rebaseTime%60}</h2>
             </div>
           </div>
           </div>
@@ -289,22 +231,7 @@ const Dash = () => {
    
    
       </div>
-
-
-      {/* <div className="block1 wallet_block">
-        <div className="inner_block1 walletaddress_box">
-          <div className='dashboard-card flex_card'>
-            <div className='card_title address_title'>
-              <FaWallet className='logo_wallet'/>
-            <h2>Wallet Address </h2> -
-            </div>
-            <div className="card_value address_box">
-             <h2>{walletAddress}</h2>
-            </div>
-          </div>
-        </div>
-        </div> */}
-        </div>
+      </div>
 
 
       <div className='container'>
@@ -315,7 +242,7 @@ const Dash = () => {
             <h2>Your Holdings</h2>
             </div>
             <div className="card_value">
-             <h2>${price * balance}</h2>
+             <h2>{balance.toLocaleString()} COSMIK</h2>
             </div>
           </div>
         </div>
@@ -325,7 +252,7 @@ const Dash = () => {
             <h2>Total Value</h2>
             </div>
             <div className="card_value">
-             <h2>${busdBalance}</h2>
+             <h2>${(price * balance).toFixed(2).toLocaleString()}</h2>
             </div>
           </div>
         </div>
@@ -335,7 +262,7 @@ const Dash = () => {
             <h2>Current Price</h2>
             </div>
             <div className="card_value">
-             <h2>${yourBusdEarning}</h2>
+             <h2>${parseFloat(price).toFixed(4).toLocaleString()}</h2>
             </div>
           </div>
         </div>
@@ -345,7 +272,7 @@ const Dash = () => {
             <h2>Current APY</h2>
             </div>
             <div className="card_value">
-             <h2>${totalBusdReward}</h2>
+             <h2>${0}</h2>
             </div>
           </div>
         </div>
@@ -355,17 +282,17 @@ const Dash = () => {
             <h2>Total Marketcap</h2>
             </div>
             <div className="card_value">
-            <h2>{price * totalSupply * 0.9}</h2>
+            <h2>${parseInt(price * totalSupply).toLocaleString()}</h2>
             </div>
           </div>
         </div>
         <div className="inner_block1">
         <div className='dashboard-card'>
             <div className='card_title'>
-            <h2>Total Burn</h2>
+            <h2>Total Supply</h2>
             </div>
             <div className="card_value">
-             <h2>${price}</h2>
+             <h2>{totalSupply.toLocaleString()}</h2>
             </div>
           </div>
         </div>
@@ -380,7 +307,7 @@ const Dash = () => {
             <h2>Currency Exchange</h2>
             </div>
             <div className="card_value">
-             <h2>${price * balance}</h2>
+             <h2>${(price * balance).toFixed(4).toLocaleString()}</h2>
             </div>
           </div>
         </div>
@@ -390,17 +317,17 @@ const Dash = () => {
             <h2>Total Token Burn</h2>
             </div>
             <div className="card_value">
-             <h2>${busdBalance}</h2>
+             <h2>${burn.toLocaleString()}</h2>
             </div>
           </div>
         </div>
         <div className="inner_block1">
         <div className='dashboard-card'>
             <div className='card_title'>
-            <h2>Tax Bracket</h2>
+            <h2>Total Burn</h2>
             </div>
             <div className="card_value">
-             <h2>${yourBusdEarning}</h2>
+             <h2>${parseFloat(burn * price).toFixed(2).toLocaleString()}</h2>
             </div>
           </div>
         </div>
@@ -424,7 +351,7 @@ const Dash = () => {
             <h2>Buy Tax</h2>
             </div>
             <div className="card_value">
-             <h2>${unclaimedReward}</h2>
+             <h2>{14}%</h2>
             </div>
           </div>
       <div className='dashboard-card dash_last'>
@@ -432,17 +359,17 @@ const Dash = () => {
             <h2>Sell Tax</h2>
             </div>
             <div className="card_value">
-             <h2>${unclaimedReward}</h2>
+             <h2>{16}%</h2>
             </div>
           </div>
       <div className='dashboard-card dash_last'>
             <div className='card_title'>
-            <h2>Rubic Integration</h2>
+            <h2>Your Current Extra Tax</h2>
             </div>
             <div className="card_value">
-             <h2>${unclaimedReward}</h2>
+             <h2>{taxBracket}</h2>
             </div>
-            <button className='claim_button' onClick = {claimReward}>Calculator</button>
+            <button className='claim_button' onClick = {0}>Calculator</button>
           </div>
       </div>
 
@@ -451,50 +378,6 @@ const Dash = () => {
       {/* third block started */}
 
 
-   
-
-
-      {/* last block */}
-{/* 
-      
-      <div className="block3 mt-30">
-      <div className='inner_block3 block1_supply'>
-      <div className='dashboard-card'>
-            <div className='card_title'>
-            <h2>Total Supply</h2>
-            </div>
-            <div className="card_value">
-             <h2> {totalSupply}</h2>
-            </div>
-          </div>
-      </div>
-
-      
-        <div className='inner_block3 block2_supply'>
-        <div className='dashboard-card'>
-            <div className='card_title'>
-            <h2>APY %</h2>
-            </div>
-            <div className="card_value">
-             <h2>{apy}%</h2>
-            </div>
-          </div>
-      </div>
-
-      </div> */}
-      {/* <div className="block1 wallet_block contract_address">
-        <div className="inner_block1 walletaddress_box">
-          <div className='dashboard-card flex_card'>
-            <div className='card_title address_title'>
-              <Ai.AiOutlinePaperClip className='logo_wallet'/>
-            <h2>contract Address </h2> -
-            </div>
-            <div className="card_value address_box">
-             <h2>{addresses.token}</h2>
-            </div>
-          </div>
-        </div>
-        </div> */}
     </div>
     <div id="rubic-widget-root"></div>
 
