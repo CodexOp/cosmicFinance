@@ -10,6 +10,7 @@ import chart from '../../images/Group.png'
 import ring from '../../images/ring.png'
 import {provider, setProvider, signer, setSigner} from '../../App';
 import values from "../../values.json"
+import {Link} from 'react-router-dom'
 
 
 const Dash = () => {
@@ -307,7 +308,12 @@ const Dash = () => {
             <h2>Currency Exchange</h2>
             </div>
             <div className="card_value">
-             <h2>${(price * balance).toFixed(4).toLocaleString()}</h2>
+            <select name="exchange" id="exchange">
+            <option value="USDT">USDT</option>
+            <option value="YEN">YEN</option>
+            <option value="BNB">BNB</option>
+            <option value="BTC">BTC</option>
+            </select>
             </div>
           </div>
         </div>
@@ -369,7 +375,7 @@ const Dash = () => {
             <div className="card_value">
              <h2>{taxBracket}</h2>
             </div>
-            <button className='claim_button' onClick = {0}>Calculator</button>
+            <Link to='/calculator'><button className='claim_button' onClick = {0}>Calculator</button></Link>
           </div>
       </div>
 

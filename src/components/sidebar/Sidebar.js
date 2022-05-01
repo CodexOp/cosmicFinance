@@ -19,6 +19,7 @@ import {provider, setProvider, signer, setSigner} from '../../App';
 const Sidebar = () => {
 
     let [address, setAddress]= useState("Connect");
+    let [active, setActive]= useState("active_logout");
 
     let [connectedWallet, setConnectedWallet] = React.useState(false);
     let [walletAddress, setWalletAddress] = React.useState("Connect");
@@ -139,10 +140,16 @@ const Sidebar = () => {
         </div>
 
         <div>
+        <div className='login'>
+
             <Link to="/swap"> <button className='swap_button'>Swap</button></Link>
-            <button className='connect_button' onClick={connectWallet}>{(connectedWallet)? <>{walletAddress.slice(0, 6) + "..."}</>
+            <button onClick={connectWallet} className='connect_button' >{(connectedWallet)? <>{walletAddress.slice(0, 6) + "..."}</>
       :
       <>Connect</>}</button>
+      <div className='logout'>
+  Logout
+</div>
+</div>
 
 
         </div>
@@ -189,9 +196,9 @@ const Sidebar = () => {
             
             </div>
             <div className='socials_select'>
-            <a href=""><Faicons.FaTelegram className="social_icons"/></a>
-            <a href=""> <Faicons.FaTwitter className="social_icons"/></a>
-            <a href="">  <Faicons.FaFacebook className="social_icons"/> </a>
+            <a href="https://t.me/MMarketingDAO"><Faicons.FaTelegram className="social_icons"/></a>
+            <a href="https://twitter.com/MetaMktingDAO"> <Faicons.FaTwitter className="social_icons"/></a>
+            <a href="https://discord.com/invite/Y9sdpcCbnv">  <Faicons.FaDiscord className="social_icons"/> </a>
             </div>,
 
         </ul>

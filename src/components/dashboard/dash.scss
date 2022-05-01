@@ -11,6 +11,23 @@
     width: 100% !important;
 }
 
+#exchange{
+    background-color: transparent;
+    color: #fff;
+    width: 50%;
+    margin:auto;
+    border-radius: 10px;
+    height: 35px;
+    border-color: #664DA1;
+    padding-left: 10px;
+    margin-top: 10px;
+
+    option{
+        background-color: #000 !important;
+        color: #fff;
+
+    }
+}
 
 // .contract_address{
 //     margin-top: 30px;

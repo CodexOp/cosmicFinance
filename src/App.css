@@ -4,3 +4,16 @@
 a{
     text-decoration: none !important; 
 }
+
+
+.dash{
+    background: url('./images/background.jpg');
+    background-size: cover;
+    min-height: 90vh;
+}
+
+body{
+    width: 100%;
+    position: relative;
+    overflow-x: hidden;
+}
